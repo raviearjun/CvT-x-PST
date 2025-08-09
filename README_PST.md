@@ -116,7 +116,7 @@ print(f"✅ Input: {x.shape} → Output: {output.shape}")
 
 ```bash
 !python train_cvt_pst.py \
-    --cfg experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \
+    --cfg /content/CvT/experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \
     --data-path /content/CvT/paddy_disease_dataset \
     --pretrained /content/CvT/CvT-21-224x224-IN-1k.pth \
     --epochs 30 \
@@ -128,8 +128,8 @@ print(f"✅ Input: {x.shape} → Output: {output.shape}")
 
 ```bash
 !python evaluate_cvt_pst.py \
-    --model-path output/checkpoint_best.pth \
-    --config experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \
+    --model-path /content/output/checkpoint_best.pth \
+    --config /content/CvT/experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \
     --data-path /content/CvT/paddy_disease_dataset/test \
     --benchmark
 ```

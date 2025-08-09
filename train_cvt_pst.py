@@ -33,7 +33,8 @@ import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, '/content/CvT/tools')
+sys.path.insert(0, '/content/CvT/lib')
 
 from lib.models.cvt_pst_classifier import create_cvt_pst_classifier, PADDY_DISEASE_CLASSES
 from lib.config import config, update_config
@@ -51,7 +52,7 @@ def parse_args():
                         help='Path to paddy disease dataset')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='Path to pretrained CvT weights')
-    parser.add_argument('--output-dir', type=str, default='./output',
+    parser.add_argument('--output-dir', type=str, default='/content/output',
                         help='Output directory for checkpoints and logs')
     parser.add_argument('--batch-size', type=int, default=32,
                         help='Batch size for training')

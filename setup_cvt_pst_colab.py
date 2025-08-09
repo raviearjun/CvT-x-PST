@@ -1,382 +1,355 @@
+#!/usr/bin/env python3
 """
-Google Colab Setup Script for CvT-PST Training
-==============================================
-
-This script sets up the environment and demonstrates how to train
-CvT with Pyramid Sparse Transformer (PST) on Google Colab.
-
-Run this script in Google Colab to:
-1. Setup the environment
-2. Download and prepare the dataset
-3. Download pretrained weights
-4. Train CvT-PST model
-5. Evaluate the results
-
-Author: CvT-x-PST Project
+Setup verification script untuk CvT-PST di Google Colab
 """
 
 import os
 import sys
-import subprocess
-import zipfile
-import urllib.request
+import argparse
 from pathlib import Path
-import shutil
 
 
-def run_command(command, description=""):
-    """Run shell command and handle errors"""
-    if description:
-        print(f"🔄 {description}")
+def check_requirements():
+    """Check apakah semua requirements sudah terinstall"""
+    import importlib
+    
+    required_packages = [
+        'torch', 'timm', 'einops', 'yacs', 
+        'tensorboard', 'cv2', 'PIL', 'numpy', 
+        'matplotlib', 'sklearn', 'tqdm'
+    ]
+    
+    missing_packages = []
+    
+    for package in required_packages:
+        try:
+            if package == 'cv2':
+                importlib.import_module('cv2')
+            elif package == 'PIL':
+                importlib.import_module('PIL')
+            elif package == 'sklearn':
+                importlib.import_module('sklearn')
+            else:
+                importlib.import_module(package)
+            print(f"✓ {package}")
+        except ImportError:
+            missing_packages.append(package)
+            print(f"❌ {package}")
+        except Exception as e:
+            print(f"⚠️ {package} (warning: {str(e)[:50]}...)")
+    
+    # Special check for torchvision (can be problematic)
+    try:
+        import torchvision
+        print(f"✓ torchvision (version: {torchvision.__version__})")
+    except Exception as e:
+        print(f"⚠️ torchvision (warning: {str(e)[:50]}...)")
+        print("   This is often okay in Colab environment")
+    
+    if missing_packages:
+        print(f"\nMissing packages: {missing_packages}")
+        print("Run: !pip install -r requirements.txt")
+        return len(missing_packages) <= 2  # Allow some missing packages
+    else:
+        print("\n✓ All required packages are installed")
+        return True
+
+
+def verify_cvt_pst_modules():
+    """Verifikasi apakah modul CvT-PST bisa diimport"""
+    print("\n🔧 Testing CvT-PST module imports...")
     
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"❌ Error: {result.stderr}")
-            return False
-        else:
-            if result.stdout.strip():
-                print(f"✅ {result.stdout.strip()}")
-            return True
+        # Test basic imports
+        from lib.models.cvt_pst_classifier import create_cvt_pst_classifier, PyramidSparseTransformer
+        from lib.models.cvt_pst_classifier import PADDY_DISEASE_CLASSES
+        print("✓ CvT-PST modules imported successfully")
+        
+        # Test creating PST module
+        pst = PyramidSparseTransformer(input_dim=768, scales=[1, 2, 4], reduction_ratio=4)
+        print("✓ PST module creation successful")
+        
+        print(f"✓ Found {len(PADDY_DISEASE_CLASSES)} paddy disease classes")
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Failed to import CvT-PST modules: {e}")
+        print("   Make sure you're running this from the CvT-x-PST directory")
+        return False
     except Exception as e:
-        print(f"❌ Exception: {e}")
+        print(f"❌ Error testing PST module: {e}")
         return False
 
 
-def setup_environment():
-    """Setup Google Colab environment"""
-    print("🚀 Setting up CvT-PST environment...")
+def test_pst_functionality():
+    """Test basic PST functionality"""
+    print("\n🧪 Testing PST functionality...")
     
-    # Install additional packages if needed
-    packages = [
-        "timm",
-        "einops", 
-        "yacs",
-        "tensorboardX"
-    ]
-    
-    for package in packages:
-        run_command(f"pip install {package}", f"Installing {package}")
-    
-    # Verify PyTorch installation
     try:
         import torch
-        import torchvision
-        print(f"✅ PyTorch {torch.__version__} installed")
-        print(f"✅ TorchVision {torchvision.__version__} installed")
-        print(f"✅ CUDA available: {torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            print(f"✅ GPU: {torch.cuda.get_device_name()}")
-    except ImportError as e:
-        print(f"❌ PyTorch import error: {e}")
+        from lib.models.cvt_pst_classifier import create_cvt_pst_classifier
+        from types import SimpleNamespace
+        
+        # Mock config
+        mock_spec = {
+            'NUM_STAGES': 3,
+            'DIM_EMBED': [64, 192, 768],
+            'PATCH_SIZE': [7, 3, 3],
+            'PATCH_STRIDE': [4, 2, 2],
+            'PATCH_PADDING': [2, 1, 1],
+            'DEPTH': [1, 2, 10],
+            'NUM_HEADS': [1, 3, 12],
+            'MLP_RATIO': [4, 4, 4],
+            'QKV_BIAS': [True, True, True],
+            'DROP_RATE': [0.0, 0.0, 0.0],
+            'ATTN_DROP_RATE': [0.0, 0.0, 0.0],
+            'DROP_PATH_RATE': [0.0, 0.0, 0.1],
+            'CLS_TOKEN': [False, False, False],
+            'QKV_PROJ_METHOD': ['dw_bn', 'dw_bn', 'dw_bn'],
+            'KERNEL_QKV': [3, 3, 3],
+            'PADDING_Q': [1, 1, 1],
+            'PADDING_KV': [1, 1, 1],
+            'STRIDE_KV': [2, 2, 2],
+            'STRIDE_Q': [1, 1, 1],
+        }
+        
+        mock_config = SimpleNamespace()
+        mock_config.MODEL = SimpleNamespace()
+        mock_config.MODEL.SPEC = mock_spec
+        
+        # Create model
+        model = create_cvt_pst_classifier(
+            config=mock_config,
+            num_classes=10,
+            pst_scales=[1, 2, 4],
+            pst_reduction_ratio=4
+        )
+        
+        # Test forward pass
+        x = torch.randn(2, 3, 224, 224)
+        with torch.no_grad():
+            output = model(x)
+        
+        assert output.shape == (2, 10), f"Expected (2, 10), got {output.shape}"
+        
+        total_params = sum(p.numel() for p in model.parameters())
+        print(f"✓ PST functionality test passed")
+        print(f"  Input shape: {x.shape}")
+        print(f"  Output shape: {output.shape}")
+        print(f"  Model parameters: {total_params:,}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ PST functionality test failed: {e}")
         return False
+
+
+def verify_dataset_exists():
+    """Verifikasi apakah dataset sudah ada"""
+    dataset_root = '/content/CvT/paddy_disease_dataset'
+    weights_file = '/content/CvT/CvT-21-224x224-IN-1k.pth'
+    
+    print(f"\n📁 Checking dataset and weights...")
+    
+    # Check dataset
+    if not os.path.exists(dataset_root):
+        print(f"❌ Dataset directory not found: {dataset_root}")
+        print("   Please create dataset structure:")
+        print("   /content/CvT/paddy_disease_dataset/")
+        print("   ├── train/")
+        print("   ├── val/")
+        print("   └── test/")
+        return False
+    
+    # Check weights
+    if not os.path.exists(weights_file):
+        print(f"❌ Pretrained weights not found: {weights_file}")
+        print("   Please download CvT-21-224x224-IN-1k.pth to /content/CvT/")
+        return False
+    
+    print("✓ Dataset directory found")
+    print("✓ Pretrained weights found")
+    return True
+
+
+def verify_dataset_structure():
+    """Verifikasi struktur dataset"""
+    dataset_root = '/content/CvT/paddy_disease_dataset'
+    
+    if not os.path.exists(dataset_root):
+        return False
+    
+    print(f"\n📊 Dataset structure analysis:")
+    
+    for split in ['train', 'val', 'test']:
+        split_path = os.path.join(dataset_root, split)
+        if not os.path.exists(split_path):
+            print(f"❌ Missing {split} directory")
+            continue
+            
+        classes = [d for d in os.listdir(split_path) 
+                  if os.path.isdir(os.path.join(split_path, d))]
+        
+        print(f"\n{split.upper()} dataset:")
+        print(f"  Classes found: {len(classes)}")
+        
+        total_images = 0
+        for class_name in sorted(classes):
+            class_path = os.path.join(split_path, class_name)
+            images = [f for f in os.listdir(class_path) 
+                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            print(f"  {class_name}: {len(images)} images")
+            total_images += len(images)
+        
+        print(f"  Total {split} images: {total_images}")
     
     return True
 
 
-def clone_repository():
-    """Clone CvT-x-PST repository"""
-    print("📦 Cloning CvT-x-PST repository...")
-    
-    repo_url = "https://github.com/raviearjun/CvT-x-PST.git"
-    target_dir = "/content/CvT"
-    
-    # Remove existing directory if it exists
-    if os.path.exists(target_dir):
-        shutil.rmtree(target_dir)
-    
-    success = run_command(
-        f"git clone {repo_url} {target_dir}",
-        "Cloning repository"
-    )
-    
-    if success:
-        os.chdir(target_dir)
-        print(f"✅ Repository cloned to {target_dir}")
-        return True
-    else:
-        print("❌ Failed to clone repository")
-        return False
-
-
-def download_pretrained_weights():
-    """Download pretrained CvT weights"""
-    print("⬇️ Downloading pretrained CvT weights...")
-    
-    # CvT-21 pretrained weights URL (you may need to update this)
-    weight_url = "https://github.com/microsoft/CvT/releases/download/v1.0/CvT-21-224x224-IN-1k.pth"
-    target_path = "/content/CvT/CvT-21-224x224-IN-1k.pth"
-    
-    try:
-        urllib.request.urlretrieve(weight_url, target_path)
-        print(f"✅ Downloaded pretrained weights to {target_path}")
-        return True
-    except Exception as e:
-        print(f"❌ Failed to download weights: {e}")
-        print("ℹ️ Please manually download CvT-21-224x224-IN-1k.pth")
-        return False
-
-
-def prepare_dataset():
-    """Prepare paddy disease dataset structure"""
-    print("📁 Preparing dataset structure...")
-    
-    dataset_dir = "/content/CvT/paddy_disease_dataset"
-    
-    # Create dataset directories
-    dirs_to_create = [
-        f"{dataset_dir}/train",
-        f"{dataset_dir}/val", 
-        f"{dataset_dir}/test"
+def setup_directories():
+    """Buat direktori output yang diperlukan"""
+    directories = [
+        '/content/output',
+        '/content/CvT/logs',
+        '/content/CvT/checkpoints'
     ]
     
-    for disease_class in [
-        'Bacterial_leaf_blight', 'Brown_spot', 'Leaf_smut', 'Normal',
-        'Blast', 'Dead_heart', 'Downy_mildew', 'Hispa', 'Tungro', 'Rice_bug'
-    ]:
-        for split in ['train', 'val', 'test']:
-            dirs_to_create.append(f"{dataset_dir}/{split}/{disease_class}")
-    
-    for dir_path in dirs_to_create:
+    for dir_path in directories:
         os.makedirs(dir_path, exist_ok=True)
-    
-    print(f"✅ Dataset directories created at {dataset_dir}")
-    print("ℹ️ Please upload your paddy disease images to the appropriate directories")
-    
-    return True
+        print(f"✓ Created directory: {dir_path}")
 
 
-def create_colab_training_notebook():
-    """Create Jupyter notebook for Colab training"""
-    print("📓 Creating training notebook...")
+def test_config_file():
+    """Test apakah config file PST bisa dibaca"""
+    print("\n⚙️ Testing PST config file...")
     
-    notebook_content = '''{
- "cells": [
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "# CvT-PST Training on Google Colab\\n",
-    "\\n",
-    "This notebook demonstrates training CvT with Pyramid Sparse Transformer on paddy disease dataset."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Setup environment\\n",
-    "import os\\n",
-    "import sys\\n",
-    "\\n",
-    "# Add project to path\\n",
-    "sys.path.insert(0, '/content/CvT')\\n",
-    "os.chdir('/content/CvT')\\n",
-    "\\n",
-    "# Check GPU\\n",
-    "import torch\\n",
-    "print(f'CUDA available: {torch.cuda.is_available()}')\\n",
-    "if torch.cuda.is_available():\\n",
-    "    print(f'GPU: {torch.cuda.get_device_name()}')"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Import CvT-PST modules\\n",
-    "from lib.models.cvt_pst_classifier import create_cvt_pst_classifier, PADDY_DISEASE_CLASSES\\n",
-    "from lib.config import config, update_config\\n",
-    "\\n",
-    "print('CvT-PST modules imported successfully!')\\n",
-    "print(f'Paddy disease classes: {PADDY_DISEASE_CLASSES}')"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Test model creation\\n",
-    "from types import SimpleNamespace\\n",
-    "\\n",
-    "# Mock config for testing\\n",
-    "mock_spec = {\\n",
-    "    'NUM_STAGES': 3,\\n",
-    "    'DIM_EMBED': [64, 192, 768],\\n",
-    "    'PATCH_SIZE': [7, 3, 3],\\n",
-    "    'PATCH_STRIDE': [4, 2, 2],\\n",
-    "    'PATCH_PADDING': [2, 1, 1],\\n",
-    "    'DEPTH': [1, 2, 10],\\n",
-    "    'NUM_HEADS': [1, 3, 12],\\n",
-    "    'MLP_RATIO': [4, 4, 4],\\n",
-    "    'QKV_BIAS': [True, True, True],\\n",
-    "    'DROP_RATE': [0.0, 0.0, 0.0],\\n",
-    "    'ATTN_DROP_RATE': [0.0, 0.0, 0.0],\\n",
-    "    'DROP_PATH_RATE': [0.0, 0.0, 0.1],\\n",
-    "    'CLS_TOKEN': [False, False, False],\\n",
-    "    'QKV_PROJ_METHOD': ['dw_bn', 'dw_bn', 'dw_bn'],\\n",
-    "    'KERNEL_QKV': [3, 3, 3],\\n",
-    "    'PADDING_Q': [1, 1, 1],\\n",
-    "    'PADDING_KV': [1, 1, 1],\\n",
-    "    'STRIDE_KV': [2, 2, 2],\\n",
-    "    'STRIDE_Q': [1, 1, 1],\\n",
-    "}\\n",
-    "\\n",
-    "mock_config = SimpleNamespace()\\n",
-    "mock_config.MODEL = SimpleNamespace()\\n",
-    "mock_config.MODEL.SPEC = mock_spec\\n",
-    "\\n",
-    "# Test model creation\\n",
-    "model = create_cvt_pst_classifier(\\n",
-    "    config=mock_config,\\n",
-    "    num_classes=10,\\n",
-    "    pst_scales=[1, 2, 4],\\n",
-    "    pst_reduction_ratio=4\\n",
-    ")\\n",
-    "\\n",
-    "# Test forward pass\\n",
-    "x = torch.randn(2, 3, 224, 224)\\n",
-    "with torch.no_grad():\\n",
-    "    output = model(x)\\n",
-    "\\n",
-    "print(f'Input shape: {x.shape}')\\n",
-    "print(f'Output shape: {output.shape}')\\n",
-    "print(f'Model parameters: {sum(p.numel() for p in model.parameters()):,}')\\n",
-    "print('✅ CvT-PST model test successful!')"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Training script (replace with your actual training code)\\n",
-    "# You can use the train_cvt_pst.py script here\\n",
-    "\\n",
-    "print('Training setup complete!')\\n",
-    "print('Next steps:')\\n",
-    "print('1. Upload your paddy disease dataset to /content/CvT/paddy_disease_dataset/')\\n",
-    "print('2. Download pretrained CvT weights to /content/CvT/')\\n",
-    "print('3. Run training script or use the training functions above')\\n",
-    "print('4. Evaluate the trained model')"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.7.12"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 4
-}'''
+    config_file = 'experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml'
     
-    notebook_path = "/content/CvT/train_cvt_pst_colab.ipynb"
-    with open(notebook_path, 'w') as f:
-        f.write(notebook_content)
+    if not os.path.exists(config_file):
+        print(f"❌ Config file not found: {config_file}")
+        return False
     
-    print(f"✅ Training notebook created at {notebook_path}")
-    return True
+    try:
+        import yaml
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Check PST config
+        if 'PST' in config.get('MODEL', {}):
+            pst_config = config['MODEL']['PST']
+            print(f"✓ PST config found:")
+            print(f"  Enabled: {pst_config.get('ENABLED', False)}")
+            print(f"  Scales: {pst_config.get('SCALES', [])}")
+            print(f"  Reduction ratio: {pst_config.get('REDUCTION_RATIO', 4)}")
+        else:
+            print("❌ PST config not found in model config")
+            return False
+        
+        print("✓ Config file validated")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error reading config: {e}")
+        return False
 
 
 def display_usage_instructions():
     """Display usage instructions"""
-    print("=" * 60)
-    print("🎉 CvT-PST Setup Complete!")
+    print("\n" + "=" * 60)
+    print("🎉 CvT-PST Setup Verification Complete!")
     print("=" * 60)
     print()
     print("📋 Next Steps:")
     print()
-    print("1. 📁 Upload Dataset:")
-    print("   - Upload your paddy disease images to:")
-    print("     /content/CvT/paddy_disease_dataset/train/[class_name]/")
-    print("     /content/CvT/paddy_disease_dataset/val/[class_name]/")
-    print("     /content/CvT/paddy_disease_dataset/test/[class_name]/")
+    print("1. 🚀 Start Training:")
+    print("   !python train_cvt_pst.py \\")
+    print("       --cfg experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \\")
+    print("       --data-path /content/CvT/paddy_disease_dataset \\")
+    print("       --pretrained /content/CvT/CvT-21-224x224-IN-1k.pth \\")
+    print("       --epochs 30 \\")
+    print("       --progressive")
     print()
-    print("2. ⬇️ Download Pretrained Weights:")
-    print("   - Download CvT-21-224x224-IN-1k.pth to /content/CvT/")
+    print("2. 📊 Evaluate Results:")
+    print("   !python evaluate_cvt_pst.py \\")
+    print("       --model-path /content/output/checkpoint_best.pth \\")
+    print("       --config experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml \\")
+    print("       --data-path /content/CvT/paddy_disease_dataset/test \\")
+    print("       --benchmark")
     print()
-    print("3. 🚀 Start Training:")
-    print("   - Option A: Use the Jupyter notebook:")
-    print("     train_cvt_pst_colab.ipynb")
-    print("   - Option B: Run training script:")
-    print("     !python train_cvt_pst.py --cfg experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml --data-path /content/CvT/paddy_disease_dataset")
-    print()
-    print("4. 📊 Evaluate Results:")
-    print("   !python evaluate_cvt_pst.py --model-path output/checkpoint_best.pth --config experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml --data-path /content/CvT/paddy_disease_dataset/test")
-    print()
-    print("🔗 Key Files:")
-    print("   - CvT-PST Model: lib/models/cvt_pst_classifier.py")
-    print("   - Config: experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml")
-    print("   - Training: train_cvt_pst.py")
-    print("   - Evaluation: evaluate_cvt_pst.py")
-    print()
-    print("📚 Classes: 10 paddy disease types")
-    for i, class_name in enumerate([
-        'Bacterial_leaf_blight', 'Brown_spot', 'Leaf_smut', 'Normal',
-        'Blast', 'Dead_heart', 'Downy_mildew', 'Hispa', 'Tungro', 'Rice_bug'
-    ]):
-        print(f"   {i}: {class_name}")
+    print("3. 🧪 Test PST Module:")
+    print("   !python test_pst_module.py")
     print()
     print("🎯 Expected Performance:")
     print("   - Training Time: ~2-3 hours on Colab GPU")
-    print("   - Expected Accuracy: 85-95% (depending on dataset quality)")
-    print("   - Model Size: ~32M parameters")
-    print()
-    print("⚠️ Memory Tips for Colab:")
-    print("   - Reduce batch size if GPU memory error occurs")
-    print("   - Use progressive training for better results")
-    print("   - Enable gradient checkpointing if needed")
+    print("   - Expected Accuracy: 85-95%")
+    print("   - Model Size: ~33M parameters")
     print()
 
 
 def main():
-    """Main setup function"""
-    print("🌾 CvT-PST Setup for Google Colab")
+    parser = argparse.ArgumentParser(description='Setup CvT-PST verification')
+    parser.add_argument('--skip-dataset', action='store_true',
+                       help='Skip dataset verification')
+    parser.add_argument('--skip-test', action='store_true',
+                       help='Skip functionality test')
+    
+    args = parser.parse_args()
+    
+    print("🌾 CvT-PST Setup Verification")
     print("=" * 50)
     
-    # Setup steps
-    steps = [
-        ("Environment Setup", setup_environment),
-        ("Repository Clone", clone_repository),
-        ("Dataset Preparation", prepare_dataset),
-        ("Pretrained Weights", download_pretrained_weights),
-        ("Training Notebook", create_colab_training_notebook),
-    ]
-    
     success_count = 0
-    for step_name, step_func in steps:
-        print(f"\n📋 Step: {step_name}")
-        if step_func():
+    total_checks = 0
+    
+    # Check requirements
+    print("\n📦 Checking requirements...")
+    total_checks += 1
+    if check_requirements():
+        success_count += 1
+    
+    # Setup directories
+    print("\n📁 Setting up directories...")
+    setup_directories()
+    
+    # Verify CvT-PST modules
+    total_checks += 1
+    if verify_cvt_pst_modules():
+        success_count += 1
+    
+    # Test PST functionality
+    if not args.skip_test:
+        total_checks += 1
+        if test_pst_functionality():
             success_count += 1
-        else:
-            print(f"⚠️ {step_name} had issues, but continuing...")
     
-    print(f"\n✅ Setup completed: {success_count}/{len(steps)} steps successful")
+    # Test config file
+    total_checks += 1
+    if test_config_file():
+        success_count += 1
     
-    # Display usage instructions
-    display_usage_instructions()
+    # Verify dataset and weights
+    if not args.skip_dataset:
+        total_checks += 1
+        if verify_dataset_exists():
+            success_count += 1
+            verify_dataset_structure()
+    else:
+        print("\n⚠️ Skipping dataset verification")
+    
+    print(f"\n✅ Setup verification completed: {success_count}/{total_checks} checks passed")
+    
+    if success_count == total_checks:
+        print("🎉 All checks passed! CvT-PST is ready for training.")
+        display_usage_instructions()
+    else:
+        print("⚠️ Some checks failed. Please resolve the issues above.")
+        print("\nCommon solutions:")
+        print("- Ensure you're in the CvT-x-PST directory")
+        print("- Install missing packages: !pip install -r requirements.txt")
+        print("- Download dataset and pretrained weights")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

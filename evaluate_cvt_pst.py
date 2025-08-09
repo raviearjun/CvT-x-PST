@@ -7,7 +7,7 @@ including accuracy metrics, confusion matrix, feature visualization, and
 per-class performance analysis.
 
 Usage:
-    python evaluate_cvt_pst.py --model-path checkpoint_best.pth --data-path /path/to/test/data
+    python evaluate_cvt_pst.py --model-path /content/output/checkpoint_best.pth --data-path /content/CvT/paddy_disease_dataset/test --config /content/CvT/experiments/imagenet/cvt/cvt-21-224x224_paddy_pst.yaml
 
 Features:
 - Comprehensive classification metrics
@@ -38,7 +38,8 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, '/content/CvT/tools')
+sys.path.insert(0, '/content/CvT/lib')
 
 from lib.models.cvt_pst_classifier import create_cvt_pst_classifier, PADDY_DISEASE_CLASSES
 from lib.config import config, update_config

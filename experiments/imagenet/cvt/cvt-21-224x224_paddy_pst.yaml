@@ -1,4 +1,20 @@
-# CvT-21 with Pyramid Sparse Transformer (PST) Configuration
+# CvT-21 w# Dataset Configuration
+DATASET:
+  ROOT: '/content/CvT/paddy_disease_dataset/'
+  DATASET: 'imagenet'
+  DATA_FORMAT: 'jpg'
+  NUM_CLASSES: 10
+  TEST_SET: 'test'
+  VAL_SET: 'val'
+  TRAIN_SET: 'train'
+
+# Model Configuration
+MODEL:
+  NAME: 'cvt_pst'
+  NUM_CLASSES: 10
+  PRETRAINED: '/content/CvT/CvT-21-224x224-IN-1k.pth'
+  INIT_WEIGHTS: True
+  PRETRAINED_LAYERS: ['*']arse Transformer (PST) Configuration
 # ============================================================
 # Configuration for training CvT-PST on Paddy Disease Dataset
 #
@@ -112,9 +128,9 @@ PIN_MEMORY: True
 PRINT_FREQ: 50 # Print frequency during training
 
 # Output Configuration
-OUTPUT_DIR: "/content/CvT/output" # Colab output directory
-LOG_DIR: "/content/CvT/logs" # Colab log directory
-CHECKPOINT_DIR: "/content/CvT/checkpoints" # Colab checkpoint directory
+OUTPUT_DIR: "/content/output/"
+LOG_DIR: "/content/CvT/logs"
+CHECKPOINT_DIR: "/content/CvT/checkpoints"
 
 # Evaluation Configuration
 EVAL:
