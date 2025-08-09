@@ -239,10 +239,32 @@ class CvT_PST_Classifier(nn.Module):
         # Initialize classification head
         self._init_classifier()
         
+        # Apply safe weight initialization to the entire model
+        self.apply(self._safe_init_weights)
+        
         logging.info(f"CvT-PST Classifier initialized:")
         logging.info(f"  - Backbone dim: {self.backbone_dim}")
         logging.info(f"  - PST scales: {pst_scales}")
         logging.info(f"  - Num classes: {num_classes}")
+    
+    def _safe_init_weights(self, module):
+        """Safe weight initialization that handles all layer types"""
+        if isinstance(module, nn.Linear):
+            nn.init.trunc_normal_(module.weight, std=0.02)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Conv2d):
+            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, (nn.BatchNorm2d, nn.LayerNorm)):
+            if hasattr(module, 'weight') and module.weight is not None:
+                nn.init.constant_(module.weight, 1)
+            if hasattr(module, 'bias') and module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        # Skip Identity, Dropout, and other layers without trainable parameters
+        elif isinstance(module, (nn.Identity, nn.Dropout, nn.ReLU, nn.GELU, nn.AdaptiveAvgPool2d)):
+            pass
     
     def _load_pretrained_backbone(self, pretrained_path):
         """Load pretrained CvT weights into backbone"""
@@ -279,6 +301,9 @@ class CvT_PST_Classifier(nn.Module):
                 nn.init.trunc_normal_(m.weight, std=0.02)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
+            # Skip Identity layers (they don't have weights to initialize)
+            elif isinstance(m, nn.Identity):
+                continue
     
     def forward_features(self, x):
         """
