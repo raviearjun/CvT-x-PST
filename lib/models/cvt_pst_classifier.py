@@ -109,6 +109,9 @@ class PyramidSparseTransformer(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+            # Skip Identity layers (they don't have weights to initialize)
+            elif isinstance(m, nn.Identity):
+                continue
     
     def forward(self, x):
         """
