@@ -1,0 +1,178 @@
+# CvT-21 with Pyramid Sparse Transformer (PST) Configuration
+# ============================================================
+# Configuration for training CvT-PST on Paddy Disease Dataset
+#
+# This config extends the original CvT-21 configuration with PST module
+# for enhanced multi-scale feature processing on 10 paddy disease classes.
+#
+# Author: CvT-x-PST Project
+# Compatible with: Google Colab, PyTorch >= 1.8.0
+
+# Dataset Configuration
+DATASET:
+  ROOT: "/content/CvT/paddy_disease_dataset" # Colab path
+  DATASET: "paddy_disease"
+  DATA_FORMAT: "rgb"
+  NUM_CLASSES: 10
+
+# Model Configuration
+MODEL:
+  NAME: "cvt_pst"
+  NUM_CLASSES: 10
+  PRETRAINED: "/content/CvT/CvT-21-224x224-IN-1k.pth" # Colab path
+  INIT_WEIGHTS: True
+  PRETRAINED_LAYERS: ["*"]
+
+  # PST Module Configuration
+  PST:
+    ENABLED: True
+    SCALES: [1, 2, 4, 8] # Pyramid scales for multi-scale processing
+    REDUCTION_RATIO: 4 # Channel reduction for efficiency
+    DROPOUT: 0.1 # Dropout rate for regularization
+
+  # CvT-21 Backbone Specification
+  SPEC:
+    NUM_STAGES: 3
+    PATCH_SIZE: [7, 3, 3]
+    PATCH_STRIDE: [4, 2, 2]
+    PATCH_PADDING: [2, 1, 1]
+    DIM_EMBED: [64, 192, 768]
+    DEPTH: [1, 2, 10]
+    NUM_HEADS: [1, 3, 12]
+    MLP_RATIO: [4, 4, 4]
+    QKV_BIAS: [True, True, True]
+    DROP_RATE: [0.0, 0.0, 0.0]
+    ATTN_DROP_RATE: [0.0, 0.0, 0.0]
+    DROP_PATH_RATE: [0.0, 0.0, 0.1]
+    CLS_TOKEN: [False, False, False]
+    QKV_PROJ_METHOD: ["dw_bn", "dw_bn", "dw_bn"]
+    KERNEL_QKV: [3, 3, 3]
+    PADDING_Q: [1, 1, 1]
+    PADDING_KV: [1, 1, 1]
+    STRIDE_KV: [2, 2, 2]
+    STRIDE_Q: [1, 1, 1]
+    INIT: "trunc_norm"
+
+# Training Configuration
+TRAIN:
+  BATCH_SIZE_PER_GPU: 32 # Batch size per GPU (adjust for Colab memory)
+  SHUFFLE: True
+  BEGIN_EPOCH: 0
+  END_EPOCH: 30
+  RESUME: False
+
+  # Progressive Training Strategy
+  PROGRESSIVE:
+    ENABLED: True # Enable two-phase training
+    FREEZE_BACKBONE_EPOCHS: 15 # Phase 1: train only PST + classifier
+    FULL_TRAINING_EPOCHS: 15 # Phase 2: fine-tune entire model
+
+  # Data Augmentation
+  AUGMENTATION:
+    HORIZONTAL_FLIP: 0.5
+    COLOR_JITTER:
+      BRIGHTNESS: 0.2
+      CONTRAST: 0.2
+      SATURATION: 0.2
+      HUE: 0.1
+    RANDOM_ROTATION: 10
+    RANDOM_CROP:
+      SCALE: [0.8, 1.0]
+      RATIO: [0.75, 1.33]
+
+# Optimizer Configuration
+OPTIMIZER:
+  TYPE: "adamw"
+  BASE_LR: 0.0005 # Base learning rate
+  BACKBONE_LR_MULT: 0.1 # Backbone learning rate multiplier
+  WEIGHT_DECAY: 0.05
+  MOMENTUM: 0.9
+
+  # Learning Rate Schedule
+  LR_SCHEDULER:
+    TYPE: "cosine"
+    MIN_LR: 0.00005 # Minimum learning rate
+    WARMUP_EPOCHS: 3 # Warmup epochs
+    WARMUP_METHOD: "linear"
+
+# Validation Configuration
+TEST:
+  BATCH_SIZE_PER_GPU: 64
+  CENTER_CROP: True
+  MODEL_FILE: "checkpoint_best.pth"
+
+# Loss Configuration
+LOSS:
+  TYPE: "CrossEntropyLoss"
+  LABEL_SMOOTHING: 0.1 # Label smoothing for better generalization
+
+# Data Loading Configuration
+WORKERS: 4 # Number of data loading workers
+PIN_MEMORY: True
+PRINT_FREQ: 50 # Print frequency during training
+
+# Output Configuration
+OUTPUT_DIR: "/content/CvT/output" # Colab output directory
+LOG_DIR: "/content/CvT/logs" # Colab log directory
+CHECKPOINT_DIR: "/content/CvT/checkpoints" # Colab checkpoint directory
+
+# Evaluation Configuration
+EVAL:
+  SAVE_PREDICTIONS: True
+  CONFUSION_MATRIX: True
+  PER_CLASS_ACCURACY: True
+  FEATURE_VISUALIZATION: True
+  SAVE_FEATURE_MAPS: False # Set to True for debugging
+
+# System Configuration
+GPUS: [0] # GPU IDs to use
+CUDNN:
+  BENCHMARK: True
+  DETERMINISTIC: False
+  ENABLED: True
+
+# Random Seed for Reproducibility
+SEED: 42
+
+# Logging Configuration
+VERBOSE: True
+SAVE_IMAGES: False # Save sample images with predictions
+
+# Memory Optimization for Colab
+MEMORY:
+  GRADIENT_CHECKPOINTING: False # Enable if memory issues
+  MIXED_PRECISION: False # Enable for faster training (experimental)
+
+# Early Stopping Configuration
+EARLY_STOPPING:
+  ENABLED: True
+  PATIENCE: 10 # Stop if no improvement for 10 epochs
+  MIN_DELTA: 0.001 # Minimum change to qualify as improvement
+
+# Model Export Configuration
+EXPORT:
+  ONNX: False # Export to ONNX format
+  TORCHSCRIPT: False # Export to TorchScript
+  SAVE_BEST_ONLY: True # Only save best performing model
+
+# Paddy Disease Classes (for reference)
+CLASSES:
+  NAMES:
+    [
+      "Bacterial_leaf_blight",
+      "Brown_spot",
+      "Leaf_smut",
+      "Normal",
+      "Blast",
+      "Dead_heart",
+      "Downy_mildew",
+      "Hispa",
+      "Tungro",
+      "Rice_bug",
+    ]
+
+# Performance Monitoring
+MONITOR:
+  METRICS: ["accuracy", "f1_score", "precision", "recall"]
+  TRACK_LEARNING_CURVES: True
+  SAVE_CONFUSION_MATRIX: True
