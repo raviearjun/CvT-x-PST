@@ -1,0 +1,29 @@
+# ===================================================================
+# MINIMAL REQUIREMENTS FOR GOOGLE COLAB 2025
+# Use built-in PyTorch, only install additional packages
+# ===================================================================
+
+# Configuration and utilities (essentials only)
+yacs
+tensorboardX
+
+# Computer vision library (modern version)  
+timm>=0.9.0
+
+# Additional dependencies
+einops
+json_tricks
+ptflops
+tensorwatch
+
+# Skip these - use Colab built-ins:
+# torch (pre-installed in Colab)
+# torchvision (pre-installed in Colab) 
+# numpy (pre-installed in Colab)
+# opencv-python (pre-installed in Colab)
+# matplotlib (pre-installed in Colab)
+# pandas (pre-installed in Colab)
+# scikit-learn (pre-installed in Colab)
+# Pillow (pre-installed in Colab)
+# pyyaml (pre-installed in Colab)
+# tqdm (pre-installed in Colab)
